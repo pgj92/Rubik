@@ -74,6 +74,36 @@ def test_perms_are_permutations():
         assert sorted(perms[i].tolist()) == list(range(54)), f"move {MOVES[i]} perm is not a permutation"
 
 
+def test_sexy_move_order_6():
+    """(R U R' U')^6 = identity. Classic cube identity; catches strip-direction bugs."""
+    seq = [MOVE_TO_IDX[m] for m in ["R", "U", "R'", "U'"]] * 6
+    s = apply_sequence(solved_state(), seq)
+    assert is_solved(s), "(R U R' U')^6 should solve"
+    seq5 = [MOVE_TO_IDX[m] for m in ["R", "U", "R'", "U'"]] * 5
+    s5 = apply_sequence(solved_state(), seq5)
+    assert not is_solved(s5), "(R U R' U')^5 should NOT solve"
+
+
+def test_RU_order_105():
+    """(R U) has order 105. Strong joint test of R and U."""
+    seq_one = [MOVE_TO_IDX["R"], MOVE_TO_IDX["U"]]
+    s = solved_state()
+    for i in range(1, 106):
+        s = apply_sequence(s, seq_one)
+        if is_solved(s):
+            assert i == 105, f"(R U) returned to identity at step {i}, expected 105"
+            return
+    assert False, "(R U) did not return to identity within 105 applications"
+
+
+def test_color_counts_preserved():
+    """Random scrambles must keep exactly 9 of each color."""
+    rng = np.random.default_rng(42)
+    state, _ = scramble(50, rng)
+    counts = np.bincount(state, minlength=6)
+    assert (counts == 9).all(), f"color counts wrong: {counts}"
+
+
 ALL_TESTS = [
     test_solved_starts_solved,
     test_U_four_times_is_identity,
@@ -82,6 +112,9 @@ ALL_TESTS = [
     test_all_inverses,
     test_scramble_then_reverse_solves,
     test_perms_are_permutations,
+    test_sexy_move_order_6,
+    test_RU_order_105,
+    test_color_counts_preserved,
 ]
 
 if __name__ == "__main__":
