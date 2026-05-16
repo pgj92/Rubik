@@ -98,16 +98,16 @@ def _build_U_perm() -> np.ndarray:
     # perm[i] tells us "where to read the new value from"
     # So if F's top row goes TO L's top row, then new L top row reads from old F top row:
     #     perm[L_top[k]] = F_top[k]
-    L_top = [9, 10, 11]
-    F_top = [18, 19, 20]
-    R_top = [27, 28, 29]
-    B_top = [36, 37, 38]
+    L_TOP = [9, 10, 11]
+    F_TOP = [18, 19, 20]
+    R_TOP = [27, 28, 29]
+    B_TOP = [36, 37, 38]
 
     for k in range(3):
-        perm[L_top[k]] = F_top[k]
-        perm[B_top[k]] = L_top[k]
-        perm[R_top[k]] = B_top[k]
-        perm[F_top[k]] = R_top[k]
+        perm[L_TOP[k]] = F_TOP[k]
+        perm[B_TOP[k]] = L_TOP[k]
+        perm[R_TOP[k]] = B_TOP[k]
+        perm[F_TOP[k]] = R_TOP[k]
 
     return perm
 
@@ -120,9 +120,9 @@ def _build_D_perm() -> np.ndarray:
       - rotates the 9 stickers on the D face clockwise
       - cycles the BOTTOM ROW of the four side faces:
             F bottom row -> L bottom row
-            L botton row -> B bottom row
-            B botton row -> R bottom row
-            R botton row -> F bottom row
+            L bottom row -> B bottom row
+            B bottom row -> R bottom row
+            R bottom row -> F bottom row
         (when viewed from top, the bottom edges move CCW)
 
     Bottom rows are:
@@ -168,10 +168,10 @@ def _build_L_perm() -> np.ndarray:
             
 
     Rotated columns are:
-        U: indices 0, 3, 6
-        F: indices 9, 12, 15
-        D: indices 45, 48, 51
-        B: indices 38, 41, 44
+        U left:  indices 0, 3, 6
+        F left:  indices 18, 21, 24
+        D left:  indices 45, 48, 51
+        B right: indices 38, 41, 44
     """
     perm = _identity_perm()
 
