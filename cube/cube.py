@@ -98,16 +98,16 @@ def _build_U_perm() -> np.ndarray:
     # perm[i] tells us "where to read the new value from"
     # So if F's top row goes TO L's top row, then new L top row reads from old F top row:
     #     perm[L_top[k]] = F_top[k]
-    L_TOP = [9, 10, 11]
-    F_TOP = [18, 19, 20]
-    R_TOP = [27, 28, 29]
-    B_TOP = [36, 37, 38]
+    L_top = [9, 10, 11]
+    F_top = [18, 19, 20]
+    R_top = [27, 28, 29]
+    B_top = [36, 37, 38]
 
     for k in range(3):
-        perm[L_TOP[k]] = F_TOP[k]
-        perm[B_TOP[k]] = L_TOP[k]
-        perm[R_TOP[k]] = B_TOP[k]
-        perm[F_TOP[k]] = R_TOP[k]
+        perm[L_top[k]] = F_top[k]
+        perm[B_top[k]] = L_top[k]
+        perm[R_top[k]] = B_top[k]
+        perm[F_top[k]] = R_top[k]
 
     return perm
 
@@ -140,16 +140,16 @@ def _build_D_perm() -> np.ndarray:
     # perm[i] tells us "where to read the new value from"
     # So if F's bottom row goes TO R's bottom row, then new R bottom row reads from old F bottom row:
     #     perm[R_bottom[k]] = F_bottom[k]
-    L_BOTTOM = [15, 16, 17]
-    F_BOTTOM = [24, 25, 26]
-    R_BOTTOM = [33, 34, 35]
-    B_BOTTOM = [42, 43, 44]
+    L_bottom = [15, 16, 17]
+    F_bottom = [24, 25, 26]
+    R_bottom = [33, 34, 35]
+    B_bottom = [42, 43, 44]
 
     for k in range(3):
-        perm[R_BOTTOM[k]] = F_BOTTOM[k]
-        perm[B_BOTTOM[k]] = R_BOTTOM[k]
-        perm[L_BOTTOM[k]] = B_BOTTOM[k]
-        perm[F_BOTTOM[k]] = L_BOTTOM[k]
+        perm[R_bottom[k]] = F_bottom[k]
+        perm[B_bottom[k]] = R_bottom[k]
+        perm[L_bottom[k]] = B_bottom[k]
+        perm[F_bottom[k]] = L_bottom[k]
 
     return perm
 
@@ -168,10 +168,10 @@ def _build_L_perm() -> np.ndarray:
             
 
     Rotated columns are:
-        U left:  indices 0, 3, 6
-        F left:  indices 18, 21, 24
-        D left:  indices 45, 48, 51
-        B right: indices 38, 41, 44
+        U: indices 0, 3, 6
+        F: indices 18, 21, 24
+        D: indices 45, 48, 51
+        B: indices 38, 41, 44
     """
     perm = _identity_perm()
 
@@ -184,16 +184,16 @@ def _build_L_perm() -> np.ndarray:
     #     perm[D_left[k]] = F_left[k]
     # For rotations with B's right column indices are reversed, thus:
     #     perm[B_right[k]] = D_left[::-1][k]
-    U_LEFT = [0, 3, 6]
-    F_LEFT = [18, 21, 24]
-    D_LEFT = [45, 48, 51]
-    B_RIGHT = [38, 41, 44]
+    U_left = [0, 3, 6]
+    F_left = [18, 21, 24]
+    D_left = [45, 48, 51]
+    B_right = [38, 41, 44]
 
     for k in range(3):
-        perm[F_LEFT[k]] = U_LEFT[k]
-        perm[D_LEFT[k]] = F_LEFT[k]
-        perm[B_RIGHT[k]] = D_LEFT[::-1][k]
-        perm[U_LEFT[k]] = B_RIGHT[::-1][k]
+        perm[F_left[k]] = U_left[k]
+        perm[D_left[k]] = F_left[k]
+        perm[B_right[k]] = D_left[::-1][k]
+        perm[U_left[k]] = B_right[::-1][k]
 
     return perm
 
@@ -227,16 +227,16 @@ def _build_R_perm() -> np.ndarray:
     #     perm[F_right[k]] = D_right[k]
     # For rotations with B's left column indices are reversed, thus:
     #     perm[B_left[k]] = U_right[::-1][k]
-    U_RIGHT = [2, 5, 8]
-    B_LEFT = [36, 39, 42]
-    D_RIGHT = [47, 50, 53]
-    F_RIGHT = [20, 23, 26]
+    U_right = [2, 5, 8]
+    B_left = [36, 39, 42]
+    D_right = [47, 50, 53]
+    F_right = [20, 23, 26]
 
     for k in range(3):
-        perm[B_LEFT[k]] = U_RIGHT[::-1][k]
-        perm[D_RIGHT[k]] = B_LEFT[::-1][k]
-        perm[F_RIGHT[k]] = D_RIGHT[k]
-        perm[U_RIGHT[k]] = F_RIGHT[k]
+        perm[B_left[k]] = U_right[::-1][k]
+        perm[D_right[k]] = B_left[::-1][k]
+        perm[F_right[k]] = D_right[k]
+        perm[U_right[k]] = F_right[k]
 
     return perm
 
@@ -265,16 +265,16 @@ def _build_F_perm() -> np.ndarray:
     _rotate_face_cw(perm, 18)
 
     # Cycle rows and columns: U -> R -(r)-> D -> L -(r)-> U
-    U_BOTTOM = [6, 7, 8]
-    R_LEFT = [27, 39, 33]
-    D_TOP = [45, 46, 47]
-    L_RIGHT = [11, 14, 17]
+    U_bottom = [6, 7, 8]
+    R_left = [27, 39, 33]
+    D_top = [45, 46, 47]
+    L_right = [11, 14, 17]
 
     for k in range(3):
-        perm[R_LEFT[k]] = U_BOTTOM[k]
-        perm[D_TOP[k]] = R_LEFT[::-1][k]
-        perm[L_RIGHT[k]] = D_TOP[k]
-        perm[U_BOTTOM[k]] = L_RIGHT[::-1][k]
+        perm[R_left[k]] = U_bottom[k]
+        perm[D_top[k]] = R_left[::-1][k]
+        perm[L_right[k]] = D_top[k]
+        perm[U_bottom[k]] = L_right[::-1][k]
 
     return perm
 
@@ -303,16 +303,16 @@ def _build_B_perm() -> np.ndarray:
     _rotate_face_cw(perm, 36)
 
     # Cycle rows and columns: U -(r)-> L -> D -(r)-> R -> U
-    U_TOP = [0, 1, 2]
-    L_LEFT = [9, 12, 15]
-    D_BOTTOM = [51, 52, 53]
-    R_RIGHT = [29, 32, 35]
+    U_top = [0, 1, 2]
+    L_left = [9, 12, 15]
+    D_bottom = [51, 52, 53]
+    R_right = [29, 32, 35]
 
     for k in range(3):
-        perm[L_LEFT[k]] = U_TOP[::-1][k]
-        perm[D_BOTTOM[k]] = L_LEFT[k]
-        perm[R_RIGHT[k]] = D_BOTTOM[::-1][k]
-        perm[U_TOP[k]] = R_RIGHT[k]
+        perm[L_left[k]] = U_top[::-1][k]
+        perm[D_bottom[k]] = L_left[k]
+        perm[R_right[k]] = D_bottom[::-1][k]
+        perm[U_top[k]] = R_right[k]
 
     return perm
 
