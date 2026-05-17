@@ -2,3 +2,5 @@ numpy
 gymnasium
 torch
 tqdm
+matplotlib
+pillow

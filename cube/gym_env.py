@@ -35,10 +35,19 @@ class RubikEnv(gym.Env):
     is configurable per-instance (constructor) and per-episode (reset options).
     """
 
-    metadata = {"render_modes": ["ansi"]}
+    metadata = {"render_modes": ["ansi", "rgb_array", "human"], "render_fps": 4}
 
-    def __init__(self, scramble_depth: int = 1, max_steps: int = 50):
+    def __init__(
+        self,
+        scramble_depth: int = 1,
+        max_steps: int = 50,
+        render_mode: str | None = None,
+    ):
         super().__init__()
+
+        assert render_mode is None or render_mode in self.metadata["render_modes"], \
+            f"render_mode must be one of {self.metadata['render_modes']} or None"
+        self.render_mode = render_mode
 
         self.action_space = spaces.Discrete(N_MOVES)
 
@@ -101,5 +110,21 @@ class RubikEnv(gym.Env):
         return self._state, reward, terminated, truncated, self._get_info()
 
     def render(self):
-        """Optional: pretty-print the cube state. Skip this for now."""
-        return None
+        """
+        Render the current cube state according to self.render_mode.
+          - "ansi":      return colored text string
+          - "rgb_array": return (H, W, 3) uint8 image
+          - "human":     print the ANSI rendering to stdout, return None
+          - None:        return None
+        """
+        if self.render_mode is None:
+            return None
+        # Import here to avoid pulling matplotlib at env construction time.
+        from .render import render_ansi, render_rgb_array
+        if self.render_mode == "ansi":
+            return render_ansi(self._state)
+        if self.render_mode == "rgb_array":
+            return render_rgb_array(self._state)
+        if self.render_mode == "human":
+            print(render_ansi(self._state))
+            return None
