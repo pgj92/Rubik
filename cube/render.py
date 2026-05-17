@@ -21,22 +21,22 @@ from .cube import N_STICKERS
 
 # Standard western cube colors
 COLORS = [
-    "#FFE600",  # 0 U  yellow
+    "#FFFFFF",  # 0 U  white
     "#FF8C00",  # 1 L  orange
     "#1FAB47",  # 2 F  green
     "#D32F2F",  # 3 R  red
     "#1E88E5",  # 4 B  blue
-    "#FFFFFF",  # 5 D  white
+    "#FFE600",  # 5 D  yellow
 ]
 
 # ANSI 256-color background codes
 ANSI = {
-    0: "\033[48;5;226m",  # yellow
+    0: "\033[48;5;255m",  # white
     1: "\033[48;5;208m",  # orange
     2: "\033[48;5;34m",   # green
     3: "\033[48;5;196m",  # red
     4: "\033[48;5;21m",   # blue
-    5: "\033[48;5;255m",  # white
+    5: "\033[48;5;226m",  # yellow
 }
 ANSI_RESET = "\033[0m"
 
