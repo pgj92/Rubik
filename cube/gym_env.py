@@ -16,7 +16,6 @@ from .cube import (
     N_STICKERS,
     N_COLORS,
     MOVES,
-    solved_state,
     apply_move,
     is_solved,
     scramble,
@@ -56,7 +55,7 @@ class RubikEnv(gym.Env):
         self._current_depth: int = scramble_depth
 
     def _get_info(self):
-        return {"scramble_depth": self._current_depth}
+        return {"scramble_depth": self._current_depth, "step_count": self._step_count}
 
     def reset(self, seed: int | None = None, options: dict | None = None):
         """
@@ -94,7 +93,7 @@ class RubikEnv(gym.Env):
         self._step_count += 1
 
         terminated = is_solved(self._state)
-        truncated  = self._step_count >= self.max_steps and not terminated
+        truncated = self._step_count >= self.max_steps and not terminated
 
         # Reward: +1.0 if solved this step, else 0.0.
         reward = 1.0 if terminated else 0.0

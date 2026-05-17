@@ -26,18 +26,26 @@ def run_random_policy(env: RubikEnv, n_episodes: int, rng: np.random.Generator):
       - mean_steps_when_solved:  average step count for the solved episodes
       - median_steps_when_solved: median, useful when distribution is skewed
     """
-    # TODO 1: For each episode:
-    #   - call env.reset() (no need to override scramble_depth; the env was
-    #     constructed with the depth we want)
-    #   - loop until terminated or truncated:
-    #       - pick an action UNIFORMLY at random using `rng.integers(0, env.action_space.n)`
-    #         (do NOT use env.action_space.sample() — it uses its own RNG and is
-    #          harder to seed reproducibly)
-    #       - call env.step(action)
-    #   - if terminated: record the step count
-    #
-    # Then compute and return the stats dict.
-    raise NotImplementedError("TODO 1: implement the random-policy rollout loop")
+    n_solved = 0
+    solved_step_counts = []
+    for episode in range(n_episodes):
+        obs, info = env.reset()
+        while True:
+            action = rng.integers(0, env.action_space.n)
+            obs, reward, terminated, truncated, info = env.step(action)
+            if terminated or truncated:
+                if terminated:
+                    n_solved += 1
+                    solved_step_counts.append(info["step_count"])
+                break
+
+    return {
+        "n_episodes": n_episodes,
+        "n_solved": n_solved,
+        "success_rate": n_solved / n_episodes,
+        "mean_steps_when_solved": np.mean(solved_step_counts),
+        "median_steps_when_solved": np.median(solved_step_counts),
+    }
 
 
 def main():
@@ -57,7 +65,7 @@ def main():
         mean_s = stats["mean_steps_when_solved"]
         med_s = stats["median_steps_when_solved"]
         mean_str = f"{mean_s:.1f}" if mean_s is not None else "n/a"
-        med_str  = f"{med_s:.1f}"  if med_s  is not None else "n/a"
+        med_str = f"{med_s:.1f}" if med_s is not None else "n/a"
         print(f"{depth:>6} {pct:>9.2f}% {mean_str:>12} {med_str:>14}")
 
 
