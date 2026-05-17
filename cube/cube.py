@@ -255,7 +255,7 @@ def _build_F_perm() -> np.ndarray:
 
     Rotated rows and columns are:
         U indices: 6, 7, 8
-        R indices: 27, 39, 33
+        R indices: 27, 30, 33
         D indices: 45, 46, 47
         L indices: 11, 14, 17
     """
