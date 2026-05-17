@@ -53,7 +53,7 @@ def run_random_policy(env: RubikEnv, n_episodes: int, rng: np.random.Generator):
 
 def main():
     depths = [1, 3, 5, 7]
-    n_episodes = 10
+    n_episodes = 1000
     max_steps = 50
 
     print(f"{'depth':>6} {'success%':>10} {'mean_steps':>12} {'median_steps':>14}")

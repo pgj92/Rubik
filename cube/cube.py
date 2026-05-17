@@ -365,12 +365,34 @@ def is_solved(state: np.ndarray) -> bool:
     return bool(np.array_equal(state, solved_state()))
 
 
+def inverse_move(move_id: int):
+    move = MOVES[move_id]
+    if len(move) == 2:
+        return MOVE_TO_IDX[move[0]]
+    else:
+        return MOVE_TO_IDX[move + "'"]
+
+
 def scramble(depth: int, rng: np.random.Generator) -> tuple[np.ndarray, list[int]]:
     """Return (scrambled_state, move_sequence) from solved, `depth` random moves."""
     state = solved_state()
     moves = []
+
+    def valid_scramble(m: int):
+        if moves and moves[-1] == inverse_move(m):
+            return False
+        if len(moves) >= 2 and moves[-2] == moves[-1]:
+            return moves[-1] != m
+        return True
+
+    def sample_move():
+        while True:
+            m = int(rng.integers(0, N_MOVES))
+            if valid_scramble(m):
+                return m
+
     for _ in range(depth):
-        m = int(rng.integers(0, N_MOVES))
+        m = sample_move()
         state = apply_move(state, m)
         moves.append(m)
     return state, moves
