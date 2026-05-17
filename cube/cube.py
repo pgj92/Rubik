@@ -266,7 +266,7 @@ def _build_F_perm() -> np.ndarray:
 
     # Cycle rows and columns: U -> R -(r)-> D -> L -(r)-> U
     U_bottom = [6, 7, 8]
-    R_left = [27, 39, 33]
+    R_left = [27, 30, 33]
     D_top = [45, 46, 47]
     L_right = [11, 14, 17]
 

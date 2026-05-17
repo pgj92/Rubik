@@ -96,6 +96,15 @@ def test_RU_order_105():
     assert False, "(R U) did not return to identity within 105 applications"
 
 
+def test_checkerboard_order_2():
+    """The 'checkerboard' pattern: (U U D D F F B B L L R R) has order 2.
+    Touches every face — catches per-face strip bugs that single-face tests miss."""
+    seq = [MOVE_TO_IDX[m] for m in
+           ["U", "U", "D", "D", "F", "F", "B", "B", "L", "L", "R", "R"]] * 2
+    s = apply_sequence(solved_state(), seq)
+    assert is_solved(s), "checkerboard squared should solve"
+
+
 def test_color_counts_preserved():
     """Random scrambles must keep exactly 9 of each color."""
     rng = np.random.default_rng(42)
@@ -114,6 +123,7 @@ ALL_TESTS = [
     test_perms_are_permutations,
     test_sexy_move_order_6,
     test_RU_order_105,
+    test_checkerboard_order_2,
     test_color_counts_preserved,
 ]
 
