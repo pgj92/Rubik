@@ -5,8 +5,6 @@ Docs to skim before implementing:
   - Custom env tutorial: https://gymnasium.farama.org/introduction/create_custom_env/
   - Env API:             https://gymnasium.farama.org/api/env/
   - Spaces:              https://gymnasium.farama.org/api/spaces/
-
-This file is a scaffold. Fill in the TODOs.
 """
 
 import gymnasium as gym
@@ -14,8 +12,14 @@ from gymnasium import spaces
 import numpy as np
 
 from .cube import (
-    N_MOVES, N_STICKERS, N_COLORS, MOVES,
-    solved_state, apply_move, is_solved, scramble,
+    N_MOVES,
+    N_STICKERS,
+    N_COLORS,
+    MOVES,
+    solved_state,
+    apply_move,
+    is_solved,
+    scramble,
 )
 
 
@@ -37,23 +41,22 @@ class RubikEnv(gym.Env):
     def __init__(self, scramble_depth: int = 1, max_steps: int = 50):
         super().__init__()
 
-        # TODO 1: Declare action_space.
-        #   Hint: spaces.Discrete(N_MOVES)
-        # self.action_space = ...
+        self.action_space = spaces.Discrete(N_MOVES)
 
-        # TODO 2: Declare observation_space.
-        #   We want a length-54 int array, values 0..5.
-        #   Hint: spaces.Box(low=0, high=N_COLORS - 1, shape=(N_STICKERS,), dtype=np.int8)
-        # self.observation_space = ...
+        self.observation_space = spaces.Box(
+            low=0, high=N_COLORS - 1, shape=(N_STICKERS,), dtype=np.int8
+        )
 
-        # TODO 3: Store config.
-        # self.scramble_depth = ...
-        # self.max_steps = ...
+        self.scramble_depth = scramble_depth
+        self.max_steps = max_steps
 
         # Will be initialized in reset().
         self._state: np.ndarray | None = None
         self._step_count: int = 0
         self._current_depth: int = scramble_depth
+
+    def _get_info(self):
+        return {"scramble_depth": self._current_depth}
 
     def reset(self, seed: int | None = None, options: dict | None = None):
         """
@@ -65,29 +68,20 @@ class RubikEnv(gym.Env):
 
         Returns: (observation, info)
         """
-        # TODO 4: Seed self.np_random by calling super().reset(seed=seed).
-        # super().reset(seed=seed)
+        super().reset(seed=seed)
 
-        # TODO 5: Determine this episode's scramble depth.
-        #   - Default to self.scramble_depth
-        #   - Override if options is not None and "scramble_depth" in options
-        # depth = ...
-        # self._current_depth = depth
+        depth = (
+            options.get("scramble_depth", self.scramble_depth)
+            if options
+            else self.scramble_depth
+        )
+        self._current_depth = depth
 
-        # TODO 6: Generate the scrambled state.
-        #   Use cube.scramble(depth, self.np_random) — it returns (state, moves).
-        #   You only need the state.
-        # self._state, _ = ...
+        self._state, _ = scramble(depth, self.np_random)
 
-        # TODO 7: Reset the step counter.
-        # self._step_count = 0
+        self._step_count = 0
 
-        # TODO 8: Return (observation, info).
-        #   - observation: self._state (already a length-54 int8 numpy array)
-        #   - info: dict containing useful debug data e.g. {"scramble_depth": depth}
-        # return ..., {...}
-
-        raise NotImplementedError("TODO: implement reset")
+        return self._state, self._get_info()
 
     def step(self, action: int):
         """
@@ -95,26 +89,17 @@ class RubikEnv(gym.Env):
 
         Returns: (observation, reward, terminated, truncated, info)
         """
-        # TODO 9: Apply the move to self._state using cube.apply_move.
-        # self._state = ...
+        self._state = apply_move(self._state, action)
 
-        # TODO 10: Increment step count.
-        # self._step_count += 1
+        self._step_count += 1
 
-        # TODO 11: Compute terminated and truncated.
-        #   - terminated = cube is solved
-        #   - truncated = NOT terminated AND step count >= max_steps
-        # terminated = ...
-        # truncated  = ...
+        terminated = is_solved(self._state)
+        truncated  = self._step_count >= self.max_steps and not terminated
 
-        # TODO 12: Compute reward.
-        #   +1.0 if solved this step, else 0.0.
-        # reward = ...
+        # Reward: +1.0 if solved this step, else 0.0.
+        reward = 1.0 if terminated else 0.0
 
-        # TODO 13: Return (obs, reward, terminated, truncated, info).
-        # return self._state, reward, terminated, truncated, {}
-
-        raise NotImplementedError("TODO: implement step")
+        return self._state, reward, terminated, truncated, self._get_info()
 
     def render(self):
         """Optional: pretty-print the cube state. Skip this for now."""
