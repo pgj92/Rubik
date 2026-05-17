@@ -39,6 +39,9 @@ def run_random_policy(env: RubikEnv, n_episodes: int, rng: np.random.Generator):
                     solved_step_counts.append(info["step_count"])
                 break
 
+    if not solved_step_counts:
+        solved_step_counts.append(np.inf)
+
     return {
         "n_episodes": n_episodes,
         "n_solved": n_solved,
@@ -50,7 +53,7 @@ def run_random_policy(env: RubikEnv, n_episodes: int, rng: np.random.Generator):
 
 def main():
     depths = [1, 3, 5, 7]
-    n_episodes = 1000
+    n_episodes = 10
     max_steps = 50
 
     print(f"{'depth':>6} {'success%':>10} {'mean_steps':>12} {'median_steps':>14}")
