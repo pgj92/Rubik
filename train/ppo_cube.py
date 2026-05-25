@@ -23,6 +23,7 @@ import gymnasium as gym
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim as optim
 import tyro
 from torch.distributions.categorical import Categorical
@@ -79,13 +80,13 @@ class Args:
 # Signature should be:
 #     def make_env(scramble_depth: int, max_steps: int) -> Callable[[], gym.Env]
 #
-# Hint: the returned thunk should:
-#     env = RubikEnv(scramble_depth=scramble_depth, max_steps=max_steps)
-#     env = gym.wrappers.RecordEpisodeStatistics(env)
-#     return env
 # ============================================================================
 def make_env(scramble_depth: int, max_steps: int):
-    raise NotImplementedError("TODO A: implement env factory")
+    def thunk():
+        env = RubikEnv(scramble_depth=scramble_depth, max_steps=max_steps)
+        env = gym.wrappers.RecordEpisodeStatistics(env)
+        return env
+    return thunk
 
 
 def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
@@ -105,12 +106,9 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
 # Implement _onehot below so that:
 #     x:  (batch, 54)        int tensor of values 0..5
 #     out: (batch, 324)      float tensor with N_STICKERS * N_COLORS one-hots
-#
-# Use torch.nn.functional.one_hot(x.long(), num_classes=N_COLORS) and
-# reshape. Cast to float32 at the end.
 # ============================================================================
 def _onehot(x: torch.Tensor) -> torch.Tensor:
-    raise NotImplementedError("TODO B: implement one-hot encoder")
+    return F.one_hot(x.long(), num_classes=N_COLORS).reshape(-1).float()
 
 
 # Input dimension to the MLPs after one-hot
@@ -173,7 +171,9 @@ if __name__ == "__main__":
     # Use gym.vector.SyncVectorEnv with `args.num_envs` copies of make_env(...).
     # This is a one-liner once TODO A is done.
     # ============================================================================
-    envs = ...  # TODO C
+    envs = gym.vector.SyncVectorEnv(
+        [make_env(args.scramble_depth, args.max_steps) for _ in range(args.num_envs)]
+    )
     assert isinstance(envs.single_action_space, gym.spaces.Discrete)
 
     agent = Agent(envs).to(device)
