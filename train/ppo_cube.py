@@ -218,12 +218,15 @@ if __name__ == "__main__":
             next_obs = torch.as_tensor(next_obs_np, dtype=torch.long, device=device)
             next_done = torch.as_tensor(next_done_np, dtype=torch.float32, device=device)
 
-            # RecordEpisodeStatistics drops finished-episode stats into infos
-            if "final_info" in infos:
-                for info in infos["final_info"]:
-                    if info and "episode" in info:
-                        ep_r = float(info["episode"]["r"])
-                        ep_l = int(info["episode"]["l"])
+            # RecordEpisodeStatistics: gymnasium 1.0+ puts finished-episode stats
+            # under infos["episode"] as a dict-of-arrays, with infos["_episode"]
+            # as a boolean mask over the sub-envs.
+            if "episode" in infos:
+                mask = infos.get("_episode", np.ones(args.num_envs, dtype=bool))
+                for i in range(args.num_envs):
+                    if mask[i]:
+                        ep_r = float(infos["episode"]["r"][i])
+                        ep_l = int(infos["episode"]["l"][i])
                         recent_returns.append(ep_r)
                         if len(recent_returns) > 100:
                             recent_returns.pop(0)
