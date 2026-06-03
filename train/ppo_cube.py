@@ -108,7 +108,7 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
 #     out: (batch, 324)      float tensor with N_STICKERS * N_COLORS one-hots
 # ============================================================================
 def _onehot(x: torch.Tensor) -> torch.Tensor:
-    return F.one_hot(x.long(), num_classes=N_COLORS).reshape(-1).float()
+    return F.one_hot(x.long(), num_classes=N_COLORS).reshape(x.shape[0], -1).float()
 
 
 # Input dimension to the MLPs after one-hot
@@ -165,12 +165,6 @@ if __name__ == "__main__":
 
     device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
 
-    # ============================================================================
-    # TODO C: wire up the parallel envs
-    # ----------------------------------------------------------------------------
-    # Use gym.vector.SyncVectorEnv with `args.num_envs` copies of make_env(...).
-    # This is a one-liner once TODO A is done.
-    # ============================================================================
     envs = gym.vector.SyncVectorEnv(
         [make_env(args.scramble_depth, args.max_steps) for _ in range(args.num_envs)]
     )
