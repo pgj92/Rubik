@@ -13,6 +13,7 @@ the curriculum and tells the underlying RubikEnv what scramble depth to use.
 In PPO training, the same Curriculum instance is shared across all parallel
 envs (we run SyncVectorEnv, so no concurrency to worry about).
 """
+
 from __future__ import annotations
 
 from collections import deque
@@ -72,12 +73,11 @@ class Curriculum:
               * with probability self.mix_current, return self.depth
               * with probability 1 - self.mix_current, return an integer
                 sampled uniformly from {1, 2, ..., self.depth - 1}
-
-        Use self.rng for randomness:
-            self.rng.random()                 -> float in [0, 1)
-            self.rng.integers(low, high)      -> int in [low, high)   (high exclusive)
         """
-        raise NotImplementedError("TODO: implement sample_depth")
+        if self.rng.random() < self.mix_current:
+            return self.depth
+        else:
+            return int(self.rng.integers(1, max(self.depth, 2)))
 
     def record(self, depth_used: int, solved: bool) -> None:
         """
@@ -87,7 +87,9 @@ class Curriculum:
         deque if this depth is new). The deque has maxlen=self.window so it
         automatically forgets old outcomes.
         """
-        raise NotImplementedError("TODO: implement record")
+        if depth_used not in self.history:
+            self.history[depth_used] = deque(maxlen=self.window)
+        self.history[depth_used].append(1 if solved else 0)
 
     def current_success_rate(self) -> float | None:
         """
@@ -95,7 +97,9 @@ class Curriculum:
         if we don't have enough data yet (require at least self.window
         samples — don't trust a noisy half-full window).
         """
-        raise NotImplementedError("TODO: implement current_success_rate")
+        total = sum(self.history.get(self.depth, []))
+        count = len(self.history.get(self.depth, []))
+        return total / count if count >= self.window else None
 
     def maybe_promote(self) -> bool:
         """
@@ -106,7 +110,16 @@ class Curriculum:
         IMPORTANT after promoting: do NOT clear the history at the new depth.
         The next-depth history starts empty until episodes are played there.
         """
-        raise NotImplementedError("TODO: implement maybe_promote")
+        success_rate = self.current_success_rate()
+        if (
+            self.depth >= self.max_depth
+            or success_rate is None
+            or success_rate < self.promote_threshold
+        ):
+            return False
+        self.depth = self.depth + 1
+        return True
+
 
 
 class CurriculumWrapper(gym.Wrapper):
