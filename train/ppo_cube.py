@@ -31,6 +31,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from cube.gym_env import RubikEnv
 from cube.cube import N_COLORS, N_STICKERS
+from train.curriculum import Curriculum, CurriculumWrapper
 
 
 @dataclass
@@ -41,8 +42,18 @@ class Args:
     cuda: bool = True
 
     # --- Cube-specific args ---
+    use_curriculum: bool = True
+    """if True, reverse-curriculum scheduler picks depth per episode"""
     scramble_depth: int = 1
-    """fixed scramble depth (curriculum will plug in here later)"""
+    """initial / fixed scramble depth (used as starting depth for curriculum)"""
+    max_curriculum_depth: int = 7
+    """max scramble depth the curriculum will climb to"""
+    curriculum_window: int = 200
+    """sliding-window size for per-depth success tracking"""
+    curriculum_threshold: float = 0.80
+    """success rate at current depth needed to promote"""
+    curriculum_mix_current: float = 0.80
+    """fraction of episodes at the current depth (rest are at lower depths)"""
     max_steps: int = 30
     """episode step limit; should be a bit larger than scramble_depth"""
 
@@ -81,9 +92,11 @@ class Args:
 #     def make_env(scramble_depth: int, max_steps: int) -> Callable[[], gym.Env]
 #
 # ============================================================================
-def make_env(scramble_depth: int, max_steps: int):
+def make_env(scramble_depth: int, max_steps: int, curriculum: Curriculum | None = None):
     def thunk():
         env = RubikEnv(scramble_depth=scramble_depth, max_steps=max_steps)
+        if curriculum is not None:
+            env = CurriculumWrapper(env, curriculum)
         env = gym.wrappers.RecordEpisodeStatistics(env)
         return env
     return thunk
@@ -165,8 +178,21 @@ if __name__ == "__main__":
 
     device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
 
+    # Curriculum (shared across all parallel envs)
+    if args.use_curriculum:
+        curriculum = Curriculum(
+            initial_depth=args.scramble_depth,
+            max_depth=args.max_curriculum_depth,
+            window=args.curriculum_window,
+            promote_threshold=args.curriculum_threshold,
+            mix_current=args.curriculum_mix_current,
+            rng=np.random.default_rng(args.seed + 9999),
+        )
+    else:
+        curriculum = None
+
     envs = gym.vector.SyncVectorEnv(
-        [make_env(args.scramble_depth, args.max_steps) for _ in range(args.num_envs)]
+        [make_env(args.scramble_depth, args.max_steps, curriculum) for _ in range(args.num_envs)]
     )
     assert isinstance(envs.single_action_space, gym.spaces.Discrete)
 
@@ -183,9 +209,15 @@ if __name__ == "__main__":
 
     global_step = 0
     start_time = time.time()
-    next_obs_np, _ = envs.reset(seed=args.seed)
+    next_obs_np, init_infos = envs.reset(seed=args.seed)
     next_obs = torch.as_tensor(next_obs_np, dtype=torch.long, device=device)
     next_done = torch.zeros(args.num_envs, device=device)
+
+    # Per-env current scramble depth (what this episode was reset to).
+    # The env's _get_info() reports `scramble_depth` so we can read it from infos.
+    current_depths = np.full(args.num_envs, args.scramble_depth, dtype=np.int64)
+    if "scramble_depth" in init_infos:
+        current_depths[:] = init_infos["scramble_depth"]
 
     # Rolling success tracker for logging
     recent_returns: list[float] = []
@@ -226,6 +258,20 @@ if __name__ == "__main__":
                             recent_returns.pop(0)
                         writer.add_scalar("charts/episodic_return", ep_r, global_step)
                         writer.add_scalar("charts/episodic_length", ep_l, global_step)
+                        # Record this episode's outcome at the depth it was played.
+                        if curriculum is not None:
+                            curriculum.record(
+                                depth_used=int(current_depths[i]),
+                                solved=bool(terminations[i]),
+                            )
+
+            # After auto-reset, envs whose episode just ended have a NEW
+            # scramble_depth (sampled by CurriculumWrapper). Refresh tracking.
+            if curriculum is not None and "scramble_depth" in infos:
+                ended = np.logical_or(terminations, truncations)
+                if ended.any():
+                    new_depths = np.asarray(infos["scramble_depth"], dtype=np.int64)
+                    current_depths[ended] = new_depths[ended]
 
         # bootstrap value
         with torch.no_grad():
@@ -303,6 +349,20 @@ if __name__ == "__main__":
         var_y = np.var(y_true)
         explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
 
+        # Curriculum: check for promotion at end of every rollout iteration.
+        if curriculum is not None:
+            promoted = curriculum.maybe_promote()
+            if promoted:
+                print(f"[curriculum] promoted to depth {curriculum.depth} at step {global_step}")
+            writer.add_scalar("curriculum/depth", curriculum.depth, global_step)
+            rate = curriculum.current_success_rate()
+            if rate is not None:
+                writer.add_scalar("curriculum/success_rate_at_current_depth", rate, global_step)
+            # Per-depth success rates (one scalar per depth that has data)
+            for d, hist in curriculum.history.items():
+                if len(hist) >= curriculum.window:
+                    writer.add_scalar(f"curriculum/success_rate_d{d}", sum(hist) / len(hist), global_step)
+
         writer.add_scalar("charts/learning_rate", optimizer.param_groups[0]["lr"], global_step)
         writer.add_scalar("losses/value_loss", v_loss.item(), global_step)
         writer.add_scalar("losses/policy_loss", pg_loss.item(), global_step)
@@ -315,8 +375,13 @@ if __name__ == "__main__":
 
         if recent_returns:
             mean_ret = float(np.mean(recent_returns))
+            curr_str = ""
+            if curriculum is not None:
+                rate = curriculum.current_success_rate()
+                rate_s = f"{rate:.2f}" if rate is not None else "n/a"
+                curr_str = f"  depth={curriculum.depth}  sr@d={rate_s}"
             print(f"iter {iteration:4d}  step {global_step:8d}  "
-                  f"mean_ret(last 100)={mean_ret:.3f}  SPS={sps}")
+                  f"mean_ret(last 100)={mean_ret:.3f}  SPS={sps}{curr_str}")
 
     envs.close()
     writer.close()
