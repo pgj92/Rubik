@@ -41,6 +41,7 @@ class RubikEnv(gym.Env):
         self,
         scramble_depth: int = 1,
         max_steps: int = 50,
+        min_scramble_depth: int | None = None,
         render_mode: str | None = None,
     ):
         super().__init__()
@@ -55,7 +56,11 @@ class RubikEnv(gym.Env):
             low=0, high=N_COLORS - 1, shape=(N_STICKERS,), dtype=np.int8
         )
 
+        if min_scramble_depth is not None:
+            assert 1 <= min_scramble_depth <= scramble_depth, \
+                "min_scramble_depth must be in [1, scramble_depth]"
         self.scramble_depth = scramble_depth
+        self.min_scramble_depth = min_scramble_depth
         self.max_steps = max_steps
 
         # Will be initialized in reset().
@@ -74,15 +79,21 @@ class RubikEnv(gym.Env):
         scramble depth for this specific episode. This is the hook the reverse
         curriculum scheduler will use.
 
+        If `min_scramble_depth` was set on the constructor (and no per-episode
+        override is given), the depth is sampled uniformly from
+        [min_scramble_depth, scramble_depth] each episode — mixed-depth
+        training that keeps shallow depths in the data distribution.
+
         Returns: (observation, info)
         """
         super().reset(seed=seed)
 
-        depth = (
-            options.get("scramble_depth", self.scramble_depth)
-            if options
-            else self.scramble_depth
-        )
+        if options and "scramble_depth" in options:
+            depth = options["scramble_depth"]
+        elif self.min_scramble_depth is not None:
+            depth = int(self.np_random.integers(self.min_scramble_depth, self.scramble_depth + 1))
+        else:
+            depth = self.scramble_depth
         self._current_depth = depth
 
         self._state, _ = scramble(depth, self.np_random)

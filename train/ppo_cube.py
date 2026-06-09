@@ -45,7 +45,7 @@ class Args:
     use_curriculum: bool = True
     """if True, reverse-curriculum scheduler picks depth per episode"""
     scramble_depth: int = 1
-    """initial / fixed scramble depth (used as starting depth for curriculum)"""
+    """initial depth for the curriculum; max/fixed depth when curriculum is off"""
     max_curriculum_depth: int = 7
     """max scramble depth the curriculum will climb to"""
     curriculum_window: int = 200
@@ -54,8 +54,15 @@ class Args:
     """success rate at current depth needed to promote"""
     curriculum_mix_current: float = 0.80
     """fraction of episodes at the current depth (rest are at lower depths)"""
+    min_scramble_depth: int | None = None
+    """no-curriculum baseline: sample depth ~ Uniform[min, scramble_depth] per
+    episode (ignored when use_curriculum is on, which does its own mixing)"""
     max_steps: int = 30
     """episode step limit; should be a bit larger than scramble_depth"""
+    hidden_size: int = 128
+    """width of the actor/critic MLP hidden layers"""
+    save_model: bool = True
+    """save the agent to runs/{run_name}/agent.pt (periodically and at the end)"""
 
     # --- PPO standard args ---
     total_timesteps: int = 200_000
@@ -92,9 +99,18 @@ class Args:
 #     def make_env(scramble_depth: int, max_steps: int) -> Callable[[], gym.Env]
 #
 # ============================================================================
-def make_env(scramble_depth: int, max_steps: int, curriculum: Curriculum | None = None):
+def make_env(
+    scramble_depth: int,
+    max_steps: int,
+    curriculum: Curriculum | None = None,
+    min_scramble_depth: int | None = None,
+):
     def thunk():
-        env = RubikEnv(scramble_depth=scramble_depth, max_steps=max_steps)
+        env = RubikEnv(
+            scramble_depth=scramble_depth,
+            max_steps=max_steps,
+            min_scramble_depth=min_scramble_depth,
+        )
         if curriculum is not None:
             env = CurriculumWrapper(env, curriculum)
         env = gym.wrappers.RecordEpisodeStatistics(env)
@@ -129,21 +145,21 @@ OBS_DIM = N_STICKERS * N_COLORS   # 54 * 6 = 324
 
 
 class Agent(nn.Module):
-    def __init__(self, envs):
+    def __init__(self, n_actions: int, hidden_size: int = 128):
         super().__init__()
         self.critic = nn.Sequential(
-            layer_init(nn.Linear(OBS_DIM, 128)),
+            layer_init(nn.Linear(OBS_DIM, hidden_size)),
             nn.Tanh(),
-            layer_init(nn.Linear(128, 128)),
+            layer_init(nn.Linear(hidden_size, hidden_size)),
             nn.Tanh(),
-            layer_init(nn.Linear(128, 1), std=1.0),
+            layer_init(nn.Linear(hidden_size, 1), std=1.0),
         )
         self.actor = nn.Sequential(
-            layer_init(nn.Linear(OBS_DIM, 128)),
+            layer_init(nn.Linear(OBS_DIM, hidden_size)),
             nn.Tanh(),
-            layer_init(nn.Linear(128, 128)),
+            layer_init(nn.Linear(hidden_size, hidden_size)),
             nn.Tanh(),
-            layer_init(nn.Linear(128, envs.single_action_space.n), std=0.01),
+            layer_init(nn.Linear(hidden_size, n_actions), std=0.01),
         )
 
     def get_value(self, x):
@@ -192,11 +208,24 @@ if __name__ == "__main__":
         curriculum = None
 
     envs = gym.vector.SyncVectorEnv(
-        [make_env(args.scramble_depth, args.max_steps, curriculum) for _ in range(args.num_envs)]
+        [
+            make_env(args.scramble_depth, args.max_steps, curriculum, args.min_scramble_depth)
+            for _ in range(args.num_envs)
+        ]
     )
     assert isinstance(envs.single_action_space, gym.spaces.Discrete)
 
-    agent = Agent(envs).to(device)
+    agent = Agent(int(envs.single_action_space.n), args.hidden_size).to(device)
+
+    def save_checkpoint():
+        torch.save(
+            {
+                "model_state_dict": agent.state_dict(),
+                "hidden_size": args.hidden_size,
+                "args": vars(args),
+            },
+            f"runs/{run_name}/agent.pt",
+        )
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
     # Storage. Observations are stored as int (we'll one-hot at network input).
@@ -382,6 +411,13 @@ if __name__ == "__main__":
                 curr_str = f"  depth={curriculum.depth}  sr@d={rate_s}"
             print(f"iter {iteration:4d}  step {global_step:8d}  "
                   f"mean_ret(last 100)={mean_ret:.3f}  SPS={sps}{curr_str}")
+
+        if args.save_model and iteration % 50 == 0:
+            save_checkpoint()
+
+    if args.save_model:
+        save_checkpoint()
+        print(f"saved model to runs/{run_name}/agent.pt")
 
     envs.close()
     writer.close()

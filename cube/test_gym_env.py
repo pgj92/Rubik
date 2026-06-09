@@ -66,6 +66,21 @@ def test_truncation_after_max_steps():
     assert truncated, "should be truncated after max_steps with no solve"
 
 
+def test_mixed_depth_sampling():
+    env = RubikEnv(scramble_depth=6, min_scramble_depth=2)
+    env.reset(seed=0)
+    depths = set()
+    for _ in range(200):
+        _, info = env.reset()
+        d = info["scramble_depth"]
+        assert 2 <= d <= 6, f"sampled depth {d} outside [2, 6]"
+        depths.add(d)
+    assert depths == {2, 3, 4, 5, 6}, f"expected all depths in [2, 6], saw {sorted(depths)}"
+    # per-episode override still wins over sampling
+    _, info = env.reset(options={"scramble_depth": 1})
+    assert info["scramble_depth"] == 1
+
+
 ALL_TESTS = [
     test_reset_returns_obs_and_info,
     test_reset_depth_0_gives_solved_state,
@@ -74,6 +89,7 @@ ALL_TESTS = [
     test_step_returns_5_tuple,
     test_solving_terminates_with_reward_1,
     test_truncation_after_max_steps,
+    test_mixed_depth_sampling,
 ]
 
 if __name__ == "__main__":
