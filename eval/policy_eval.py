@@ -43,7 +43,9 @@ def evaluate_depth(
     n_solved = 0
     solved_step_counts = []
     for episode in range(n_episodes):
-        obs, info = env.reset(seed=seed + episode if episode == 0 else None)
+        # Seed once to get a reproducible stream; later resets (seed=None)
+        # draw fresh scrambles from the same RNG.
+        obs, info = env.reset(seed=seed if episode == 0 else None)
         while True:
             x = torch.as_tensor(obs, dtype=torch.long, device=device).unsqueeze(0)
             if stochastic:
