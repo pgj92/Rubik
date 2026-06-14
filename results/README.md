@@ -1,7 +1,7 @@
 # Results
 
 Plain-text experiment outputs committed here so they can be read/reviewed in
-the repo (handy when copy-paste out of the training environment is blocked).
+the repo.
 
 Checkpoints themselves stay out of git (`runs/` is git-ignored) — only the
 text tables/logs live here.
