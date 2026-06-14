@@ -216,3 +216,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Training runs: tensorboard event logs and model checkpoints (agent.pt).
+# Reproduce via the saved command/seed; preserve notable models as GitHub
+# Release artifacts rather than committing binaries to git history.
+runs/
