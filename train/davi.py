@@ -37,6 +37,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import tyro
+from torch.utils.tensorboard import SummaryWriter
 
 from cube.cube import (
     N_MOVES,
@@ -109,10 +110,12 @@ PERMS = get_perms()           # (12, 54) int — PERMS[m] is the permutation for
 SOLVED = solved_state()       # (54,) int
 
 
-def random_scramble_batch(batch_size: int, max_depth: int, rng: np.random.Generator) -> np.ndarray:
+def random_scramble_batch(batch_size: int, max_depth: int, rng: np.random.Generator,
+                          return_depths: bool = False):
     """
     Generate `batch_size` scrambled states, each a random walk of length
-    Uniform[1, max_depth] from solved. Returns (batch_size, 54) int array.
+    Uniform[1, max_depth] from solved. Returns (batch_size, 54) int array, or
+    (states, depths) if return_depths=True (depths is the walk length per state).
 
     Vectorized: all states walk together; at step t we only move the states
     whose sampled length is still >= t. (Random walk, not the de-duplicated
@@ -129,6 +132,8 @@ def random_scramble_batch(batch_size: int, max_depth: int, rng: np.random.Genera
         moves = rng.integers(0, N_MOVES, size=n)        # (n,)
         idx = PERMS[moves]                              # (n, 54)
         states[active] = np.take_along_axis(states[active], idx, axis=1)
+    if return_depths:
+        return states, depths
     return states
 
 
@@ -176,6 +181,12 @@ def main():
 
     device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
 
+    writer = SummaryWriter(f"runs/{run_name}")
+    writer.add_text(
+        "hyperparameters",
+        "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{k}|{v}|" for k, v in vars(args).items()])),
+    )
+
     online = ValueNet(args.hidden_size, args.n_layers).to(device)
     target = ValueNet(args.hidden_size, args.n_layers).to(device)
     target.load_state_dict(online.state_dict())
@@ -196,7 +207,9 @@ def main():
 
     start = time.time()
     for update in range(1, args.total_updates + 1):
-        states_np = random_scramble_batch(args.batch_size, args.max_scramble_depth, rng)
+        states_np, depths_np = random_scramble_batch(
+            args.batch_size, args.max_scramble_depth, rng, return_depths=True
+        )
         states_t = torch.as_tensor(states_np, device=device)
 
         target_vals = compute_targets(states_np, target, device)
@@ -213,8 +226,22 @@ def main():
         if update % args.target_update_interval == 0:
             target.load_state_dict(online.state_dict())
 
+        # --- TensorBoard logging (mirrors train/ppo_cube.py) ---
+        writer.add_scalar("losses/value_loss", loss.item(), update)
+        writer.add_scalar("charts/mean_pred", pred.mean().item(), update)
+        writer.add_scalar("charts/mean_target", target_vals.mean().item(), update)
+
         if update % 100 == 0 or update == 1:
             ups = update / (time.time() - start)
+            writer.add_scalar("charts/updates_per_sec", ups, update)
+            # DAVI-specific diagnostic: mean predicted cost-to-go bucketed by the
+            # scramble walk length. A healthy heuristic grows monotonically with
+            # depth — this is the curve to watch, more telling than loss alone.
+            pred_np = pred.detach().cpu().numpy()
+            for d in range(1, args.max_scramble_depth + 1):
+                mask = depths_np == d
+                if mask.any():
+                    writer.add_scalar(f"pred_by_depth/d{d:02d}", float(pred_np[mask].mean()), update)
             print(f"update {update:6d}/{args.total_updates}  "
                   f"loss={loss.item():.4f}  "
                   f"mean_pred={pred.mean().item():.2f}  "
@@ -225,6 +252,8 @@ def main():
     if args.save_model:
         save_checkpoint()
         print(f"saved value net to runs/{run_name}/value_net.pt")
+
+    writer.close()
 
 
 if __name__ == "__main__":
